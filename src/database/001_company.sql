@@ -1,0 +1,7 @@
+CREATE TABLE Company (
+    Id SERIAL PRIMARY KEY,
+    CompanyName VARCHAR(200),
+    Email VARCHAR(200),
+    Phone VARCHAR(20),
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
