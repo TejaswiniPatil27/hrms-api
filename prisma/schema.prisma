@@ -1,0 +1,239 @@
+// HRMS Database Schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============ Company & Organization ============
+model Company {
+  id        Int     @id @default(autoincrement())
+  name      String  @db.VarChar(200)
+  email     String  @db.VarChar(200)
+  phone     String  @db.VarChar(20)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  departments  Department[]
+  designations Designation[]
+  employees    Employee[]
+  holidays     Holiday[]
+  leaves       Leave[]
+  notifications Notification[]
+
+  @@map("companies")
+}
+
+model Department {
+  id        Int     @id @default(autoincrement())
+  name      String  @db.VarChar(100)
+  companyId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees Employee[]
+
+  @@unique([name, companyId])
+  @@map("departments")
+}
+
+model Designation {
+  id        Int     @id @default(autoincrement())
+  name      String  @db.VarChar(100)
+  companyId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employees Employee[]
+
+  @@unique([name, companyId])
+  @@map("designations")
+}
+
+// ============ Users & Authentication ============
+model User {
+  id        Int     @id @default(autoincrement())
+  email     String  @unique @db.VarChar(200)
+  password  String
+  firstName String  @db.VarChar(100)
+  lastName  String  @db.VarChar(100)
+  role      UserRole @default(EMPLOYEE)
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  employee  Employee?
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+  HR
+}
+
+// ============ Employee Management ============
+model Employee {
+  id             Int     @id @default(autoincrement())
+  userId         Int     @unique
+  companyId      Int
+  departmentId   Int
+  designationId  Int
+  employeeCode   String  @unique @db.VarChar(50)
+  firstName      String  @db.VarChar(100)
+  lastName       String  @db.VarChar(100)
+  email          String  @unique @db.VarChar(200)
+  phone          String  @db.VarChar(20)
+  dateOfBirth    DateTime?
+  joiningDate    DateTime
+  address        String?
+  city           String  @db.VarChar(100)
+  state          String  @db.VarChar(100)
+  country        String  @db.VarChar(100)
+  zipCode        String  @db.VarChar(10)
+  salary         Decimal @db.Decimal(12, 2)
+  status         EmployeeStatus @default(ACTIVE)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department  Department  @relation(fields: [departmentId], references: [id])
+  designation Designation @relation(fields: [designationId], references: [id])
+  attendance  Attendance[]
+  leaves      Leave[]
+  notifications Notification[]
+
+  @@map("employees")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ONLEAVE
+  SEPARATED
+}
+
+// ============ Attendance & Tracking ============
+model Attendance {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  date       DateTime
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     AttendanceStatus @default(ABSENT)
+  remarks    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@map("attendance")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALFDAY
+  ONLEAVE
+  HOLIDAY
+  WEEKEND
+}
+
+// ============ Leave Management ============
+model Leave {
+  id           Int     @id @default(autoincrement())
+  employeeId   Int
+  companyId    Int
+  leaveType    LeaveType
+  startDate    DateTime
+  endDate      DateTime
+  reason       String?
+  status       LeaveStatus @default(PENDING)
+  approvedBy   Int?
+  approvalDate DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("leaves")
+}
+
+enum LeaveType {
+  CASUAL
+  MEDICAL
+  EARNED
+  UNPAID
+  MATERNITY
+  PATERNITY
+  SICK
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// ============ Holidays & Company Holidays ============
+model Holiday {
+  id        Int     @id @default(autoincrement())
+  companyId Int
+  name      String  @db.VarChar(100)
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date])
+  @@map("holidays")
+}
+
+// ============ Notifications ============
+model Notification {
+  id         Int      @id @default(autoincrement())
+  employeeId Int?
+  companyId  Int?
+  title      String   @db.VarChar(200)
+  message    String   @db.Text
+  type       NotificationType
+  isRead     Boolean  @default(false)
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  company    Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  LEAVE_REQUEST
+  ATTENDANCE_ALERT
+  HOLIDAY_NOTIFICATION
+  COMPANY_ANNOUNCEMENT
+  SYSTEM_ALERT
+}
